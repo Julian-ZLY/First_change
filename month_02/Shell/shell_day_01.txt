@@ -1,0 +1,189 @@
+200行
+
+cat /etc/shells    //查看本机可用解释器
+
+准备环境
+rht-vmctl reset classroom
+rht-vmctl reset desktop
+rht-vmctl reset server
+
+进入desktop或者server中:
+yum -y install ksh   //安装新解释器
+
+bash优点:
+历史记录,tab键,快捷键,管道, 重定向
+
+一个标准的shell脚本包含:
+1, 声明解释器
+2, 注释,脚本功能,变量的含义等
+3,执行指令(脚本内容)
+
+#!/bin/bash
+#这是一个测试脚本
+echo "你好"
+
+执行脚本的方式
+1,添加完x权限后,使用完整路径
+	chmod +x 脚本.sh
+	/opt/脚本.sh
+2,bash 脚本.sh
+3,source  脚本.sh
+
+bash 执行脚本时开启子进程
+source 执行脚本不开启子进程
+		pstree可以看到进程树
+测试用以下脚本:
+
+#!/bin/bash
+mkdir abcd
+cd abcd
+
+bash看不到进入目录的效果,新开启的bash进程进入目录后的效果随着脚本结束而消失
+source可以看到,因为不开启子进程,只使用当前解释器的进程
+
+
+编写自动配置yum仓库的脚本:
+#!/bin/bash
+rm -rf /etc/yum.repos.d/*.repo
+echo "[test]
+name=abcdefg
+baseurl=http://172.25.0.254/content/rhel7.0/x86_64/dvd/
+enabled=1
+gpgcheck=0" > /etc/yum.repos.d/test.repo
+
+执行脚本后,使用yum repolist检查
+
+编写自动安装ftp并设置开机自启的脚本:
+#!/bin/bash
+yum -y install vsftpd  &> /dev/null   //安装过程不显示
+systemctl start vsftpd
+systemctl enable vsftpd
+
+systemctl stop firewalld  //运行脚本后关闭防火墙用真机链接虚拟机的ftp测试
+vim /etc/vsftpd/vsftpd.conf   //ftp的配置文件可以根据需要开启匿名上传,修改第29行, 另外/var/ftp/pub需要给写权限
+anon_upload_enable=YES    //创建文件
+anon_mkdir_write_enable=YES   //创建目录
+如果要测试写入权限,需要修改配置后重启服务,并关掉selinux
+systemctl restart vsftpd
+setenforce 0
+
+变量,使用变量名代替未知量,大大增加脚本灵活
+变量名的定义,使用字母,数字,下划线,不能以数字开头,不能用特殊符号
+User=10   //等号两边不要出现空格
+User=20   //再次给变量赋值会覆盖之前的值
+unset User   //删除变量
+
+变量种类:
+1,自定义变量
+2,系统变量,包含
+	环境变量 PWD,HOME,UID,HOSTNAME,PATH,USER,SHELL,PS1,PS2
+	位置变量 $1   $2   $3 ....
+	预定义变量 $0   $?    $$    $*    $#
+
+#!/bin/bash
+echo $1
+echo $2
+echo $3
+echo $0  显示脚本名
+echo $*	 所有参数
+echo $#  参数的个数
+echo $?  上一任务是否成功,0成功,非0失败
+echo $$  显示进程号(PID)
+
+编写脚本实现   创建用户abc,并配置密码123
+
+#!/bin/bash
+useradd abc
+echo 123 | passwd --stdin abc
+
+改良版
+#!/bin/bash
+useradd $1
+echo $2 | passwd --stdin $1
+
+env  显示所有环境变量
+set  显示所有变量
+
+
+''    界定范围,屏蔽特殊符号的效果
+""   界定范围
+touch  a b   // 创建2个文件
+touch  "a b"  //创建1个文件
+touch  'a b'  //创建1个文件
+a=10
+echo $a     //显示变量内容
+echo "$a"   //显示变量内容
+echo '$a'	//显示$a  ,$的特殊含义被单引号屏蔽
+
+``  获取命令结果
+mv a `date +%Y%m%d`    //将a文件改名为当天日期
+tar -czf log-`date +%Y%m%d`.tar.gz   /var/log  //备份日志改名为log-当天日期.tar.gz
+
+
+编写创建用户配置密码的脚本:
+#!/bin/bash
+read -p "请输入用户名" User
+useradd $User
+stty -echo
+read -p "请输入密码" Pass
+stty echo 
+echo $Pass | passwd --stdin $User
+
+
+stty -echo  //关闭回显,屏蔽用户输入的内容,不影响系统弹出的信息
+stty echo  //开启回显
+
+export 发布全局变量,使子进程可以使用父进程定义的变量
+		通常没有发布全局变量时,定义的变量为局部效果
+
+测试:
+a=10     //定义局部变量
+export a   //修改为全局变量
+export b=20   //新定义+发布全局变量
+bash    //进入子进程
+echo $a   //检测全局变量是否可用
+echo $b
+exit	//退出子进程
+export -n a    //取消变量a的全局效果,恢复局部变量效果
+bash   //进入子进程
+echo $a  //检测效果,发现无内容
+
+shell中的运算
+方法一:
+expr  +  -  \*  /   %求模(取余数)
+注意,运算符号两边必须加空格,乘号需要使用\(转义符号)或者''(单引号)取消原本含义
+方法二:使用$[]或$(())表达式
+echo $[1+1] 或 echo $((1+1)) 
+echo $[2-1] 
+echo $[2*2] 
+echo $[4/2] 
+echo $[10%3] 
+方法三:使用let命令,let在运算时不显示结果,可以方便的对变量进行自增减
+let a=a+10 相当于 a+=10,后面是主流写法
+	a=a-10  	a-=10
+	a=a+1   	a++
+	a=a-1  		a--
+	a=a*10  	a*=10
+	a=a/10  	a/=10
+	a=a%10 	    a%=10
+
+验证可以用echo $a
+
+方法四: bc,可以进行小数运算,scale可以确定小数点后面位数
+[root@desktop0 opt]# echo "1+1" | bc
+2
+[root@desktop0 opt]# echo "11.1+1" | bc
+12.1
+[root@desktop0 opt]# echo "10/3" | bc
+3
+[root@desktop0 opt]# echo "scale=3;10/3" | bc
+3.333
+[root@desktop0 opt]# echo "scale=3;10/3;1+1" | bc
+3.333
+2
+
+
+
+
+
+

@@ -1,0 +1,163 @@
+网络功能, 资源共享 ,数据通讯,提高可靠,提高系统处理能力
+60,分组交换
+70~80 ,tcp/ip
+90, web技术
+
+iso 
+osi
+物理层 ,数据链路层,网络层,传输层 应用层
+  网卡,     交换机,    路由器, 防火墙, PC
+   比特流,  数据帧  ,  数据包,  数据段
+
+拓扑结构
+1,点对点 , 广域网
+2,星形
+3,网状
+
+用户视图,系统视图,接口视图,协议视图  quit 
+MAC,物理地址,硬件地址   
+48位   前24位 厂商标识, 后24位厂商赋予的产品序号
+交换机的工作原理
+学习,广播,转发,更新
+
+广播泛滥
+
+vlan  虚拟局域网
+1,控制广播
+2,提高安全
+3,提高带宽利用
+4,降低数据传输延迟
+
+4096个   0~4095    1000+ 
+
+广播域, 相同广播域中的主机可以接收到来自本域的所有广播
+1个广播域=1个部门=1个vlan=相同网段
+
+vlan 2   //创建vlan 2
+undo vlan 2   //删除vlan 2
+vlan batch 2 6  //创建vlan2和vlan6
+vlan batch 2 to 6  //创建vlan2,vlan3,vlan4,vlan5,vlan6
+dispaly vlan   //查看vlan列表
+
+in e0/0/3    //进入3接口
+port link-type access    //接口类型修改为access
+port default vlan 2      //将此接口加入vlan2
+in e0/0/4    //进入4接口
+port link-type access    //接口类型修改为access
+port default vlan 2      //将此接口加入vlan2
+
+或
+
+[Huawei]port-group 1    //进入1号组
+[Huawei-port-group-1]group-member Ethernet0/0/3 Ethernet0/0/4   //添加3接口与4接口到该组
+[Huawei-port-group-1]port link-type access  //对全组接口修改类型
+[Huawei-port-group-1]port default vlan 2 //将全组接口加入vlan2  
+
+vlan3:
+[Huawei]port-group 2    //进入2号组
+[Huawei-port-group-2]group-member Ethernet0/0/5 Ethernet0/0/6   //添加5接口与6接口到该组
+[Huawei-port-group-2]port link-type access  //对全组接口修改类型
+[Huawei-port-group-2]port default vlan 3 //将全组接口加入vlan3 
+最后使用 display vlan  查看配置
+
+SW1
+in e0/0/7
+port link-type access    //接口类型修改为access
+port default vlan 3      //将此接口加入vlan3
+
+SW2
+in e0/0/7
+port link-type access    //接口类型修改为access
+port default vlan 3      //将此接口加入vlan3
+in e0/0/3
+port link-type access    //接口类型修改为access
+port default vlan 3      //将此接口加入vlan3
+
+access 接入链路   承载1个vlan,通常在链接了终端设备(PC)的接口配置
+trunk  中继链路   承载多个vlan,通常在两台交换机之间的链路配置
+
+clear configuration interface Ethernet 0/0/7   //在系统视图,清空7接口所有配置,注意清空后接口自动关闭
+in e0/0/7    //进入7接口
+undo shutdown     //开启接口
+port link-type trunk   //继续在7口中配置中继链路
+port trunk allow-pass vlan all   //允许所有vlan通过
+display this  //检查配置
+
+配置思路:
+1,规划vlan,需要多少创建多少
+2,将对应的接口加入vlan
+3,交换机之间的链路配置为trunk
+最后pc配置好ip做ping测试
+
+单点故障
+
+
+链路聚合,提高链路可靠,提高链路带宽
+注意:配置之前检查接口是否为默认状态,否则要清空配置
+clear configuration interface Ethernet 0/0/7 
+in e0/0/7
+undo shutdown
+1,找到要捆绑的接口,至少2个以上
+2,创建链路聚合接口
+interface Eth-trunk 1    //创建1号链路聚合接口
+3,将物理接口加入链路聚合接口
+trunkport ethernet 0/0/7  0/0/8   //将7口8口加入并捆绑在一起
+port link-type trunk    //继续将1号链路聚合口配置为中继链路
+port trunk allow-pass vlan all   //放行所有vlan
+
+<Hhuawei>undo terminal monitor  //在用户视图下关闭某些信息提示
+ 
+A 1~127   /8
+255.0.0.0
+B 128~191   /16
+255.255.0.0
+C 192~223     /24
+255.255.255.0
+192.168.0.1
+
+172.25.0.10 /24     172.25.0.1~172.25.0.254
+255.255.255.0
+
+172.25.0.10 /16     172.25.0.1~172.25.255.254    172.25.0.255  172.25.1.0
+255.255.0.0
+
+
+c类地址可用范围,比如192.168.1.0网段 就是192.168.1.1~192.168.1.254
+
+某网段中 第一个地址是网络ID,最后一个地址是广播地址
+
+172.16.16.16    172.16.0.1~ 172.16.255.254
+255.255.0.0
+
+使用路由器链接不同网段
+[Huawei]interface GigabitEthernet 0/0/0
+[Huawei-GigabitEthernet0/0/1]ip address 192.168.1.254 24
+[Huawei-GigabitEthernet0/0/1]quit
+[Huawei]interface GigabitEthernet 0/0/1
+[Huawei-GigabitEthernet0/0/1]ip address 192.168.2.254 24
+
+网关:终端设备访问其他网段的出口,通常网关由一台三层设备承担,比如路由器
+PC1 的ip 192.168.1.1 /24 网关192.168.1.254
+PC2 的ip 192.168.2.1 /24 网关192.168.2.254
+
+路由器可以将不同网段的数据进行传递,依靠路由表来选路
+路由表指明当前设备可以前往的区域(网段)
+
+路由表中具体可以前往的目的地可以由以下方式获得
+1,直连路由 : 在设备接口配置好ip地址并且打开后 自动产生
+2,静态路由 : 由管理员手工设置,小规模网络使用
+ip route-static 目标网络id 目标网络子网掩码  下一跳地址
+
+R1
+[Huawei]ip route-static 192.168.3.0 24 192.168.2.2    //管理员人工指定(增加)该设备可以前往的网段是3.0, 只要将目的地址是3.0的数据扔向2.2即可
+[Huawei]ip route-static 192.168.4.0 24 192.168.2.2
+R2
+[Huawei]ip route-static 192.168.1.0 24 192.168.2.1
+
+
+
+
+
+
+
+

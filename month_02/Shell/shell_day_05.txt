@@ -1,0 +1,114 @@
+前置指令 | sed 选项  (定址符)指令
+sed 选项  (定址符)指令    文件
+-n    -r    -i
+/ /p    2d     3s
+
+a行后追加     i行前插入    c替换整行
+
+sed '1a AAAA'  user   //在第1行的后面追加AAAA
+sed '/^bin/a AAAA'  user   //在以bin开头的行的后面追加AAAA
+sed '1i AAAA'  user   //在第1行的前面追加AAAA
+sed '/^bin/i AAAA'  user   //在以bin开头的行的前面追加AAAA
+sed '1c AAAA'  user   //把第1行替换成AAAA
+sed '/^bin/c AAAA'  user   //把bin开头的行替换成AAAA
+sed '$a 1.1.1.1 www.baidu.com'  /etc/hosts   //在hosts文件的最后一行后面追加ip地址与域名
+
+
+sed  修改,查找 文件 
+awk  查找输出文件的内容 
+
+awk使用方式: 
+1,   前置命令 | awk 选项  条件{指令} 
+2, awk 选项  条件{指令}   文件
+
+指令 :   print  $1  $2  $3
+选项 :    -F  分隔符
+
+awk '{print $1}'  nssa   //在nssa文件中查找所有行的第1列并输出
+awk '{print}'  nssa  //输出文档所有内容
+awk -F: '{print $6}'  /etc/passwd  //以冒号做分隔符,输出第6列,相当于显示所有用户的家目录
+
+提取网卡流量:
+ifconfig eth0 | sed -rn '/RX p|TX p/p' | awk -F[\(\)] '{print $2}'     //首先使用前置命令查看eth0网卡所有信息, 然后使用sed过滤显示有RX p(接收的流量)和TX p(发送的流量)的行, 最后使用awk 定义小括号为分隔符 ,并输出第2列
+
+ifconfig eth0 | awk -F[\(\)] '/RX p|TX p/{print $2}'  //awk也支持正则, 效果同上
+
+awk支持常量输出,放在双引号中间即可
+df -h | awk '/vda1/{print "当前主机根分区剩余空间是"$4}'  //配合常量输出
+
+awk '/Failed/{print "登录本机失败的IP地址",$11}' /var/log/secure    //在安全日志文件中利用awk筛选出访问本机失败的ip,可加逗号做空格
+
+awk的内置变量: 
+$0显示所有      $1 $2 $3...      NR显示行号    NF显示列号
+
+awk处理的时机: 相当于逐行任务之外的任务
+BEGIN{print  }    //在逐行任务之前添加任务,执行1次
+{print}			 //逐行任务,执行n次
+END{print }		//在逐行任务之后添加任务,执行1次
+
+awk 'BEGIN{print "早上好"}{print}END{print "再见"}' nssw 
+
+awk '{print}END{print NR}' nssw   //显示所有内容,以及最后一行的行号
+
+awk -F: 'BEGIN{print "User\tUid\tHome"}{print  $1"\t"$3"\t"$6}END{print "总计" NR "行"}' user     //使用awk处理时机,输出表头,内容,和结尾
+
+awk  'BEGIN{x=0}{x++}END{print x}'  user
+
+awk处理条件:
+1,使用正则
+awk -F: '/root/{print}'  /etc/passwd  //输入有root的行
+awk -F: '$1~/root/{print}'  /etc/passwd  //输入第一列包含root的行
+awk -F: '$1!~/root/{print}'  /etc/passwd  //输入第一列不包含root的行
+
+2,使用字符或数字做条件,可以配合符号 ==  !=   >   <    >=   <=
+awk -F: '$1=="root"{print}' user   //找第1列是root的行
+awk -F: 'NR==1{print}' user    //找第一行
+awk -F: '$3>=1000{print $1,$3}'  /etc/passwd   //找第3列大于等于1000的行,并输出第1列与第3列
+awk -F: '$3<10{print $1,$3}'  /etc/passwd   //找第3列小于10的行,并输出第1列与第3列
+awk -F: '$3==10{print $1,$3}'  /etc/passwd  //找第3列等于10的行,找不到则无任何显示
+
+3,使用逻辑符号    && 且     || 或
+
+awk -F: '$3>10 && $3<20{print}' /etc/passwd    //找第3列大于10并且第3列小于20的行,  {print}可以省略不写
+awk -F: '$1=="root" ||$1=="bin"{print}' /etc/passwd   //找第1列是root或是bin的行
+awk -F: '$1=="rootabc" ||$1=="bin"{print}' /etc/passwd  //找第1列是rootabc或是bin的行
+awk -F: '$1=="root" && $1=="bin"{print}' /etc/passwd  //找第1列既是root又是bin的行,逻辑错误,找不到
+awk -F: '$3>100 && $3<10{print}' /etc/passwd   //逻辑错误找不到
+awk -F: '$3>10 || $3<1000print}' /etc/passwd  //找所有行
+
+4,运算
+awk 'BEGIN{print 1+1}'
+awk 'BEGIN{print 1.1+1.1}'
+awk 'BEGIN{print 2*2}'
+awk 'BEGIN{print 2/2}'
+awk 'BEGIN{print 2%2}'
+awk 'BEGIN{x=2;y=5;print x+y}'
+
+列出UID间于1~1000的用户详细信息
+输出/etc/hosts映射文件内以127或者192开头的记录
+列出100以内整数中7的倍数或是含7的数
+seq 100 | awk '$1%7==0 || $1~/7/'
+方法一:
+#/bin/bash
+A=$(awk -F:  '/bash$/{print $1}' /etc/passwd)	
+for i in $A
+do
+		grep $i /etc/shadow | awk -F: '{print $1,"-->",$2}'				
+done
+
+方法二:
+#!/bin/bash
+u=`awk -F: '/bash$/{print $1}' /etc/passwd`
+for i in $u
+do
+        awk -F: -v a=$i '$1==a{print $1,"-->" ,$2}' /etc/shadow
+done
+
+
+
+
+
+
+
+
+

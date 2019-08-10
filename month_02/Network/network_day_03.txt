@@ -1,0 +1,151 @@
+三层交换机= 三层路由 + 二层交换
+
+使用三层交换机
+可以先关闭信息提示避免干扰
+<Huawei>undo terminal monitor
+1,创建所需vlan
+[Huawei]vlan batch 2 3
+2,将接口加入对应vlan
+interface g0/0/2
+port link-type access
+port default vlan 2
+interface g0/0/3
+port link-type access
+port default vlan 3
+3,在三层交换机虚拟接口配置ip,作为终端设备的网关
+三层交换机配置ip需要在vlan虚拟接口进行
+in vlan 1
+ip address 192.168.1.254 24
+in vlan 2
+ip address 192.168.2.254 24
+in vlan 3
+ip address 192.168.3.254 24
+
+添加普通交换机合理利用三层交换机的接口
+1,新添加S3700一台
+2,在S3700中创建vlan2 ,vlan3
+3,将e0/0/2接口加入vlan2,e0/0/3接口加入vlan3
+
+在两台交换机之间的链路配置trunk并放行所有vlan
+S3700
+in e0/0/22
+port link-type trunk
+port trunk allow-pass vlan all
+S5700
+in g0/0/1
+port link-type trunk
+port trunk allow-pass vlan all
+
+为S5700的g0/0/2接口赋予ip的方式:
+vlan 4  //创建vlan4
+in vlan 4    //进入vlan4的虚拟接口
+ip address 192.168.4.1 24   //为此接口配ip
+in g0/0/2    //进入2口
+port link-type access   //设置类型
+port default vlan 4   //加入vlan4
+
+dis ip interface brief  //查看所有配置过的ip
+dis vlan    //可以在接口后面看到U代表开启D代表关闭
+
+路由 指路
+路由设备依靠路由表来传输不同网段数据
+
+1,直连路由,接口配置ip并开启,自动生成
+2,静态路由
+3,动态路由,是由某些动态路由协议实现,适合大型网络
+4,默认路由,是特殊的静态路由,可以访问任意网络
+		  通常配置在末梢网络或网关出口设备
+
+ospf 开放最短路径优先
+宣告,告知其他设备自身所连接的网段
+
+S5700:
+ospf    //进入ospf协议视图
+area 0   //进入区域0,小规模网络只需要一个区域,且必须从0开始
+network 192.168.1.0 0.0.0.255   //宣告所在网段
+network 192.168.2.0 0.0.0.255
+network 192.168.3.0 0.0.0.255
+network 192.168.4.0 0.0.0.255
+
+路由器:
+ospf
+area 0
+network 192.168.5.0 0.0.0.255
+network 192.168.4.0 0.0.0.255
+
+使用默认路由访问外部网段
+1,删除路由器5网段的宣告
+ospf
+area 0
+undo network 192.168.5.0 0.0.0.255
+2,在三层交换机中配置默认路由(0.0.0.0 0 代表任意网络)
+ip route-static 0.0.0.0 0 192.168.4.2    
+
+传输层,定义了端口号,实现了端到端的链接
+
+端口总数65536个
+范围0~65535
+1~1023  知名端口号
+
+TCP 可靠,效率低,面向连接
+UDP 不可靠, 效率高,无连接
+
+TCP协议中比较重要的三个标志位
+ACK 确认
+SYN 打算与对方建立连接
+FIN 打算与对方断开链接
+
+三次握手  syn---ack,syn---ack
+四次断开  fin---ack---fin---ack
+
+ACL  访问控制列表
+高级ACL  3000~3999   源ip  目标ip 源端口  目标端口  协议
+基本ACL  2000~2999   源ip
+1,创建acl条目
+2,在接口应用
+
+255.255.255.0
+11111111.11111111.11111111.00000000
+
+192.168.2.100
+
+192.168.2.1 0.0.0.0
+0严格匹配
+1(8个1就是255) 不匹配
+deny    拒绝
+permit  允许
+
+使用acl实现禁止192.168.2.1与192.168.1.1通讯 
+在路由器上配置:
+[Huawei]acl 2000  //创建acl2000
+[Huawei-acl-basic-2000]rule deny source 192.168.2.1 0   //定义规则,禁止源地址是192.168.2.1的数据通过
+[Huawei]interface G0/0/1  //进入1接口
+[Huawei-GigabitEthernet0/0/1]traffic-filter inbound acl 2000    //在接口使用acl2000过滤进入的数据
+
+最后验证使用2.1无法与1.1互通,而2.2可以
+
+只允许2.1与1.1通讯,其他主机无法连通1.1
+acl 2001  //创建acl2001 
+[Huawei-acl-basic-2001]rule permit source 192.168.2.1 0   //允许2.1通过
+[Huawei-acl-basic-2001]rule deny source any  //禁止任何人通过
+[Huawei]interface G0/0/1  //进入1接口
+[Huawei-GigabitEthernet0/0/1]undo traffic-filter inbound   //在接口删除之前启用的acl
+[Huawei-GigabitEthernet0/0/1]traffic-filter inbound acl 2001  //在接口应用新的acl
+*注意:acl条目讲究顺序,匹配即立场,上述实验acl的规则不能写反!
+display acl 2001   //查看配置的acl
+
+通过高级acl的配置,禁止2.1访问1.1的网站,其他业务不受影响
+acl 3000
+rule deny tcp source 192.168.2.1 0 destination 192.168.1.1 0 destination-port eq 80
+interface G0/0/1  //进入1接口
+undo traffic-filter inbound   //在接口删除之前启用的acl(如果已经删除了,不用再删除,使用display this验证即可)
+traffic-filter inbound acl 3000  //在接口应用新的acl
+最后使用2.1访问1.1,效果是能ping通,却访问不了网站
+
+
+
+
+
+
+
+

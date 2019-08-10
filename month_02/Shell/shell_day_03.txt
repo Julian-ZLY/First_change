@@ -1,0 +1,250 @@
+&&   ||    if
+case分支,简化版本ｉｆ，功能不如ｉｆ强大，代码比ｉｆ简洁
+
+case 变量  in
+模式1)
+	命令序列1;;
+模式2)
+	命令序列2;;
+模式3)
+	命令序列3;;
+*)
+	命令序列4
+esac
+
+httpd nginx
+
+编写一键源代码编译安装nginx软件的脚本
+源码安装Nginx需要提前安装依赖包软件gcc,openssl-devel,pcre-devel
+
+#!/bin/bash
+yum -y install gcc openssl-devel pcre-devel
+tar -xf nginx-1.12.2.tar.gz
+cd nginx-1.12.2
+./configure
+make
+make install
+
+运行脚本后执行:
+/usr/local/nginx/sbin/nginx   //开启nginx服务
+systemctl stop firewalld      //关闭防火墙后,用真机浏览器测试虚拟机的web服务是否正常  http://172.25.0.10  
+
+
+netstat -ntulp | grep nginx
+-n以数字格式显示端口号
+-t显示TCP连接的端口
+-u显示UDP连接的端口
+-l显示服务正在监听的端口信息，如httpd启动后，会一直监听80端口
+-p显示监听端口的服务名称是什么（也就是程序名称）
+
+编写方便使用nginx服务的工具脚本
+#!/bin/bash
+case $1 in
+start)
+	netstat -ntulp | grep -q nginx
+	[ $? -eq 0 ] && echo "服务已经开启"   &&  exit
+	/usr/local/nginx/sbin/nginx;;	//开启服务
+stop)
+	/usr/local/nginx/sbin/nginx -s stop;;   //关闭服务
+re)
+	/usr/local/nginx/sbin/nginx -s stop    //先关闭再开启
+	/usr/local/nginx/sbin/nginx;;		  可以实现重启效果
+status)
+	netstat -ntulp | grep -q nginx		//检查服务状态
+	[ $? -eq 0 ] && echo "服务开启"   ||  echo "服务未开启";;
+*)
+	echo "start | stop | re | status"
+esac
+
+
+
+在Shell脚本中，将一些需重复使用的操作，定义为公共的语句块，即可称为函数。通过使用函数，可以使脚本代码更加简洁，增强易读性，提高Shell脚本的执行效率
+
+格式1：
+function  函数名 {
+    命令序列
+    .. ..
+}
+
+格式2：
+函数名() {
+    命令序列
+    .. ..
+}
+
+#!/bin/bash
+a(){			//定义函数,名为a
+echo abc		//函数中的指令,可以是多条
+echo xyz
+}
+
+a	//执行函数
+a	//再次执行函数,多次执行可以体现函数优势
+
+
+#!/bin/bash
+cecho(){
+echo -e "\033[$1m$2\033[0m"
+}
+
+cecho 31 ABCDEFG
+cecho 32 ABCDEFG
+cecho 33 ABCDEFG
+cecho 34 ABCDEFG
+cecho 35 ABCDEFG
+cecho 36 ABCDEFG
+
+
+
+break	  //终止循环,继续执行循环之后的任务
+continue  //终止本次循环,继续下一次循环
+exit     //直接退出脚本
+
+编写为用户提供的数字求和脚本,0是结束
+#!/bin/bash
+x=0
+while :
+do
+	read -p "请输入一个数字(0是结束)"  n
+	[ $n -eq 0 ]  && break
+	let x+=n
+
+done
+echo "总和是 $x"
+
+
+编写脚本,找出1~20中谁是6的倍数
+
+#!/bin/bash
+for i in {1..20}
+do
+	x=$[i%6]	//依次用数字除6取余数
+	[ $x -ne 0 ] && continue  //余数不等于0的话,结束本次循环
+	echo $i						进入下一次循环
+done
+
+
+字串处理
+1,字串截取
+
+${变量名:起始位置:长度} 
+a=abcdef
+echo ${a:0:2}    //截取变量a中的字串,从第一位开始截取2位
+echo ${a::2} 	//0可以省略
+echo ${a:3:1} 	//截取第4位字符
+
+获取1位随机字符
+n=$[RANDOM%62]
+echo ${x:n:1}
+
+如何获取8位?
+编写获取8位随机字符的脚本
+#!/bin/bash
+x=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQR
+STUVWXYZ0123456789
+for i in {1..8}
+do
+    n=$[RANDOM%62]		//求出随机数,范围是0~61之间
+    txt=${x:n:1}		//截取出对应的字符
+    pass=$pass$txt		//累加放在变量pass里面
+done
+echo $pass			//循环结束后,得出结果
+
+
+2,字串替换
+${变量名/old/new} 
+
+a=111
+echo ${a/1/a}    //将1个1替换为a
+echo ${a//1/a}   //将所有1都替换为a
+echo ${a/11/aa}  //将11替换为aa
+echo ${a//1/}    //替换为空,等于删除
+
+3,字串删除
+掐头
+${变量名#被删除内容}        //从左往右删除
+
+a=`head -1 /etc/passwd`     //准备素材
+echo ${a#root}			//从左往右删除到root
+echo ${a#x}			//从左往右删除到x,无效,因为第一个字符不是x
+echo ${a#root:x}	//手工输入需要删除的内容
+echo ${a#*x}		//使用通配符删除到x以及x左边所有内容,效果同上
+echo ${a##*root}    //从左往右删除删除到最后一个root,以及root左边所有内容
+echo ${a#*:root}   //从左往右删除到第一个:root,以及左边所有
+
+去尾
+echo ${变量名称%被删除的内容}
+
+echo ${a%bash}      //去尾,删除到第一个bash
+echo ${a%root*}     //删除到第一个root,以及此root右边所有
+echo ${a%%root*}	//删除到最后一个root,以及此root右边所有
+echo ${a%%:*}		//删除到最后一个:  ,以及右边所有
+
+利用字串删除功能编写脚本,用来实现批量修改扩展名
+将所有.txt 文件 修改为 .doc
+#!/bin/bash
+for i in `ls *.txt`    //找到所有.txt文件 依次交给for循环
+do
+        n=${i%.*}      //把找到的每个文件去尾,得到无扩展名的文件名
+        mv $i $n.doc   //修改文件,将名称与.doc组合
+done
+
+改良
+#!/bin/bash
+for i in `ls *.$1` 
+do
+        n=${i%.*}  
+        mv $i $n.$2
+done
+
+
+定义变量初值(备用值)
+aa=			//aa等于空
+echo ${aa:-123}     //定义初值,如果aa是空,则a的内容就是123
+								     非空的话,则显示具体内容
+aa=10		//aa非空
+echo ${aa:-123}    //不会显示123
+
+编写创建用户并配置密码的脚本,如果用户没有输入密码直接回车,则统一使用123,如果用户输入了密码则不使用123
+#!/bin/bash
+read -p "请输入用户名"   n
+useradd  $n
+read -p "请输入密码"  p
+echo ${p:-123} | passwd --stdin $n
+
+休息 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

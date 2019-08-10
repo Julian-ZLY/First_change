@@ -1,0 +1,258 @@
+bash  快捷键,tab,管道,历史记录,重定向
+1,声明解释器 2注释脚本功能,重要变量的含义  3脚本代码
+1,自定义变量  
+2,系统变量,包含环境变量 PWD HOSTNAME USER  HOME  UID PATH PS1 PS2 SHELL ,位置变量 $1 $2 $3.... ,预定义变量 $0 $* $# $? $$
+''   ""   ``   read -p  stty  -echo    stty  echo
+export a=10   export -n    unset
+运算,1 expr  +  -  \(转义)*  /  %
+	2 echo $[1+1]
+	3 let  a*=10   a=a*10
+			a++  a--
+
+条件测试:   使用“test 表达式”或者[ 表达式 ]都可以
+
+1,字符串匹配   
+[ a == a ]	//判断a是否等于a
+echo $?   	//结果为0,正确
+[ a != a ]  //判断a是否不等于a
+echo $?  	//结果为非0,错误
+[ $USER == root ]  //判断当前用户是不是管理员
+
+&& 且,前置命令成功后才执行后面命令
+|| 或,前置命令失败后才执行后面命令
+[ a == a ] && echo ok  
+[ a == b ] && echo ok
+[ a == a ] || echo "前置任务失败了"
+[ a == b ] || echo "前置任务失败了"
+
+[ -z $a  ]  //测试变量a是否为空,是空返回0
+[ ! -z $a  ] 或  [  -n $a  ]  //测试变量a,不是空的时候返回0
+
+多个逻辑符号连用时:
+&& 且, 前后任务都成功,才算成功
+|| 或 ,前后任务有一个成功,就算成功
+[ -z $a ] && echo "a是空的"  ||  echo "a不是空的"
+[ ! -z $a  ] && echo "a不是空的"  ||  echo "a是空的"  
+
+
+2,比较整数值的大小
+-eq等于   -ne不等于   -ge大于等于    -gt大于    -le小于等于    -lt小于
+
+X=20  	//定义一个测试变量
+[ $X -eq 20 ] && echo "相等" || echo "不相等"
+[ $X -eq 30 ] && echo "相等" || echo "不相等"
+[ $X -ne 20 ] && echo "不等于" || echo "等于"
+[ $X -ne 30 ] && echo "不等于" || echo "等于"
+[ $X -gt 10 ] && echo "大于" || echo "否"
+[ $X -gt 20 ] && echo "大于" || echo "否"
+[ $X -gt 30 ] && echo "大于" || echo "否"
+
+
+写一个脚本,实现:
+每2分钟检测服务器登录用户的数量,如果超过3人,则发邮件给管理员报警
+
+素材:
+crontab
+who | wc -l
+[ -gt 3 ]   &&  echo "报警"  |  mail -s test root
+
+
+#!/bin/bash
+n=`who | wc -l`    //定义变量n,为目前登录账户的数量
+[ $n -gt 3 ]  &&  echo "报警"  |  mail -s test root   //用变量n与3对比,如果大于3,则发邮件给管理员,邮件标题是test,内容是"报警"  
+
+n=`who | wc -l` 与  [ $n -gt 3 ] 也可以写成[ `who | wc -l` -gt 3 ]
+可以提前准备邮件文本,使用输入重定向,邮件内容就是文本内容
+mail -s test root < txt
+
+脚本写完后 添加x权限
+并在计划任务中添加具体执行时间与脚本位置
+crontab -e
+*/2 * * * * /opt/test1.sh    //每2分钟执行一次脚本
+
+/var/spool/mail/root    //管理员所有邮件所在的文件,测试前可以先删除此文件
+
+3,识别文件/目录的状态
+-r读    -w写    -x执行
+-e存在   -f存在且是文件    -d存在且是目录
+
+[ -r  txt  ]  //测试当前用户对文件txt有没有读权限(对root无效)
+[ -w  txt  ]  //测试当前用户对文件txt有没有写权限(对root无效)
+[ -x  txt  ]  //测试当前用户对文件txt有没有执行权限
+[ -e  txt  ]  //txt是否存在,不在乎文件类型
+[ -f  txt  ]  //txt是否存在,还必须是文件
+[ -d  txt  ]  //txt是否存在,还必须是目录
+
+4,多个条件/操作的逻辑组合
+&&        ||     
+
+==    !=    -z    ! -z (-n)   -eq   -ne   -gt  -ge  -lt  -le   -r  -w  -x   -e  -f   -d
+
+if判断
+
+单分支
+if 条件测试;then
+	执行指令
+fi
+
+
+if 条件测试
+then
+	执行指令
+fi
+
+
+双分支
+if 条件测试;then
+	命令序列1
+else
+	命令序列2
+fi
+
+ping 
+
+使用if双分支编写脚本,测试与其他主机的链接情况: 
+ping命令可以使用选项增加工作效率  
+-c 定义ping的次数   -i 定义ping的间隔时间,单位秒  -W 定义反馈结果的时间,单位秒
+
+#!/bin/bash
+ping -c 3 -i 0.2 -W 1 $1  &> /dev/null
+if [ $? -eq 0 ];then
+    echo "通了"
+else
+    echo "不通"
+fi
+
+#!/bin/bash
+[ -z $1 ] && echo "请在脚本名后输入ip" && exit
+ping -c 3 -i 0.2 -W 1 $1  &> /dev/null
+if [ $? -eq 0 ];then
+    echo "通了"
+else
+    echo "不通"
+fi
+
+#!/bin/bash
+read -p "请输入ip地址"  ip
+ping -c 3 -i 0.2 -W 1 $ip  &> /dev/null
+if [ $? -eq 0 ];then
+    echo "通了"
+else
+    echo "不通"
+fi
+
+
+多分支
+if 条件测试;then
+	命令序列1
+elif 条件测试;then
+	命令序列2
+else
+	命令序列3
+fi
+
+使用RANDOM获取随机数字,编写猜大小脚本
+#!/bin/bash
+x=$[RANDOM%11]   //使用随机数除11,取余数范围在0-10之间,为变量x
+read -p "请输入一个数字(0-10)"  n   //用户提供一个数字,为变量n  
+if [ $n -eq $x ];then    //利用if多分支将x与n进行对比,如果相等
+	echo "猜对啦"        //反馈信息
+elif [ $n -gt $x ];then    //如果用户给的数字大于随机数
+	echo "猜大了"	//反馈信息
+else
+	echo "猜小了"        //最后一种情况
+fi
+
+for循环
+
+for 变量名  in 参数1 参数2 参数3......
+do
+	任务指令
+done
+
+
+1,与变量有关,而且关心循环次数
+2,只关心循环次数
+
+#!/bin/bash
+for i in {1..8}
+do
+    echo nb
+done
+
+#!/bin/bash
+for i in `seq 8`
+do
+    echo nb
+done
+
+#!/bin/bash
+x=5
+for i in `seq $x`
+do
+    echo nb
+done
+
+利用文本创建账户,账户数量由文本决定
+#!/bin/bash
+for i in `cat user`  //查看文本user后,将内容依次交给i循环
+do
+	useradd $i   //第一次循环创建的是文本中的第一个用户,以此类推
+done
+
+vim /etc/vimrc
+set ts=4    //ts是tabstop,vim编辑器中每次tab间隔4个空格,默认8个
+
+编写脚本实现,一次检测12台主机172.25.0.1~172.25.0.12的网络状况,仅仅显示结果
+#!/bin/bash
+x=0
+y=0
+for i in {1..12}
+do
+    ping -c 3 -i 0.2 -W 1 172.25.0.$i  &> /dev/null
+    if [ $? -eq 0 ];then
+        echo "172.25.0.$i 通了"
+        let x++			//每通一台,x就+1
+    else
+        echo "172.25.0.$i 不通"
+        let y++			//每不通一台,y就+1
+    fi
+done
+echo "$x台通了,$y台不通"
+
+
+
+while 条件测试
+do
+	任务序列
+done
+
+使用while循环编写猜数脚本,猜对为止,并统计猜的次数
+#!/bin/bash
+x=$[RANDOM%101]
+c=0
+while :
+do
+    read -p "请输入一个数字(0-100)" n
+    let c++
+    if [ $n -eq $x ];then
+        echo "猜对了,猜了$c次"
+        exit
+    elif [ $n -gt $x ];then
+        echo "猜大了"
+    else
+        echo "猜小了"
+    fi
+done
+
+
+
+
+
+
+
+
+
+
+
+

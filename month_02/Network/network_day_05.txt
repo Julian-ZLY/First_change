@@ -1,0 +1,164 @@
+vlan trunk 链路聚合  stp ospf 静态路由  默认路由  acl vrrp nat
+
+组建大型企业网络
+
+1,规划vlan,每台交换机分别创建vlan10 20 30 40
+	vlan batch 10 20 30 40
+2,将每台主机链接的交换机接口加入所在的vlan
+   sw1 进入0/0/1接口加入vlan10
+	    in e0/0/1
+		port link-type access
+		port default vlan 10
+3,将交换机与三层设备链接的链路配置为trunk
+	sw1~sw3
+	port-group 1  //创建接口组,为了方便在多个接口实现相同命令
+	group-member ethernet 0/0/21 ethernet 0/0/22
+	port link-type trunk
+	port trunk allow-pass vlan all
+	sw4
+	interface eth-trunk 1   //创建链路聚合接口1
+	trunkport ethernet 0/0/19 0/0/20  //将19和20号口捆一起
+	port link-type trunk  //将聚合接口1配置为trunk
+	port trunk allow-pass vlan all  //允许所有vlan通过
+	interface eth-trunk 2   //创建链路聚合接口2
+	trunkport ethernet 0/0/21 0/0/22  //将21和22号口捆一起
+	port link-type trunk
+	port trunk allow-pass vlan all
+
+4,添加2台三层交换机,重命名ms1 与 ms2,同时创建之前的4个vlan
+	sysname ms1
+   	vlan batch 10 20 30 40
+    port-group 1  //创建接口组,为了方便在多个接口实现相同命令
+	group-member g0/0/1 to g0/0/3 g0/0/6  //添加了4个口
+	port link-type trunk    //给这个4个口都配成trunk
+	port trunk allow-pass vlan all
+	ms1与ms2
+	interface eth-trunk 1   //创建链路聚合接口1
+	trunkport gigabitethernet 0/0/4 0/0/5  //将4和5号口捆一起
+	port link-type trunk
+	port trunk allow-pass vlan all	
+
+5,为三层交换机配置ip,并测试
+	ms1配置252 , ms2都把252改成253
+	in vlan 10  
+	ip add 192.168.10.252 24
+	in vlan 20  
+	ip add 192.168.20.252 24
+	in vlan 30  
+	ip add 192.168.30.252 24
+	in vlan 30  
+	ip add 192.168.40.252 24
+
+display ip interface brief    //查看所有配置的ip地址
+
+6,配置vrrp实现虚拟网关
+ms1成为vlan10与20的主
+	in vlan 10
+	vrrp vrid 10 virtual-ip 192.168.10.254
+	vrrp vrid 10 priority 105  //提高优先级,在vlan10保持主的身份
+	in vlan 20
+	vrrp vrid 20 virtual-ip 192.168.20.254
+	vrrp vrid 20 priority 105  //提高优先级,在vlan20保持主的身份
+	in vlan 30
+	vrrp vrid 30 virtual-ip 192.168.30.254
+	in vlan 40
+	vrrp vrid 40 virtual-ip 192.168.40.254
+ms2成为vlan30与40的主
+	in vlan 10
+	vrrp vrid 10 virtual-ip 192.168.10.254
+	in vlan 20
+	vrrp vrid 20 virtual-ip 192.168.20.254
+	in vlan 30
+	vrrp vrid 30 virtual-ip 192.168.30.254
+	vrrp vrid 30 priority 105  //提高优先级,在vlan30保持主的身份
+	in vlan 40
+	vrrp vrid 40 virtual-ip 192.168.40.254
+	vrrp vrid 40 priority 105  //提高优先级,在vlan40保持主的身份
+
+排错: 1,首先检查所有ip,子网掩码与网关 , 然后查看所有交换机是否都创建了4个vlan, 所有交换机之间所链接的链路是否全是trunk
+
+7,为三层交换机外网出口配置ip
+	ms1
+	vlan batch 50 60
+	in vlan 50
+	ip add 192.168.50.2 24
+	in g0/0/7
+	port link-type access
+	port default vlan 50
+	in vlan 60
+	ip add 192.168.60.2 24
+	in g0/0/8
+	port link-type access
+	port default vlan 60
+	ms2
+	vlan batch 70 80
+	in vlan 70
+	ip add 192.168.70.2 24
+	in g0/0/7
+	port link-type access
+	port default vlan 70
+	in vlan 80
+	ip add 192.168.80.2 24
+	in g0/0/8
+	port link-type access
+	port default vlan 80
+
+8,同时为路由器配置对应ip
+9,为三层交换机开启ospf
+	ms1
+	ospf
+	area 0
+	network 192.168.10.0 0.0.0.255
+	network 192.168.20.0 0.0.0.255
+	network 192.168.30.0 0.0.0.255
+	network 192.168.40.0 0.0.0.255
+	network 192.168.50.0 0.0.0.255
+	network 192.168.60.0 0.0.0.255
+	ms2
+	ospf
+	area 0
+	network 192.168.10.0 0.0.0.255
+	network 192.168.20.0 0.0.0.255
+	network 192.168.30.0 0.0.0.255
+	network 192.168.40.0 0.0.0.255
+	network 192.168.70.0 0.0.0.255
+	network 192.168.80.0 0.0.0.255
+	R1
+	ospf
+	area 0
+	network 192.168.50.0 0.0.0.255
+	network 192.168.70.0 0.0.0.255
+	R2
+	ospf
+	area 0
+	network 192.168.60.0 0.0.0.255
+	network 192.168.80.0 0.0.0.255
+10,添加外部网络,外网设备使用3700交换机
+	路由器链接外网的接口配置ip
+	然后配置默认路由
+	R1与R2
+	ip route-static 0.0.0.0 0 100.0.0.10  //配置默认路由
+	ospf
+	default-route-advertise   //对外通告默认路由
+11,配置nat让内外互通
+	R1与R2
+	acl 2000   //创建acl确定谁可以访问外网的主机
+	rule permit source any   //任何人都可以
+	in g0/0/2
+	nat outbound 2000  //进入接口开启nat,列表2000中是所有人
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

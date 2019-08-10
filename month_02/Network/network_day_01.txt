@@ -1,0 +1,136 @@
+网络的功能:
+1,数据通讯
+2,资源共享
+3,提高可靠
+4,提高系统处理能力
+
+网络历史
+60年代,分组交换,可以提高数据传输成功率,降低服务器负担
+70~80,TCP/IP
+90~至今,web技术
+
+iso 国际标准化组织
+ieee 电子与电气工程师学会
+
+WAN  几十公里     internet
+LAN  1公里以内   办公室,教室,宿舍
+
+企业级
+思科  华为
+路由器 交换机
+
+拓扑结构:
+1,点对点 , 适用范围是广域网
+2,星形,适用范围是局域网,优点是容易扩展,易实现,易于故障排查
+3,网状,适用范围是局域网,高可靠
+
+osi七层参考模型(理论框架)
+物理层,数据链路层,网络层,传输层,会话层,表示层,应用层
+tcp\ip五层模型(实际使用)
+物理层,数据链路层,网络层,传输层,应用层
+ 网卡    交换机   路由器  防火墙  PC
+
+PDU协议数据单元:(不同层次数据在传输时用的单位)
+物理层--比特流
+数据链路层--数据帧
+网络层--数据包
+传输层--数据段
+
+进入win2008系统
+密码:tedu
+==========================
+运行脚本,教学环境需要:
+172.40.50.115
+pub目录下找kvm.sh
+1,要用root执行(需要添加执行权限)
+2,关闭所有虚拟机
+成功后看到ok字样
+==========================
+
+网络设备命令行视图
+1, 用户视图   >  system-view 
+    系统视图 ]
+    接口视图 g0/0/1]
+    协议视图
+
+quit   //返回上一视图
+return 或者 快捷键ctrl +z  //返回到用户视图
+
+模块 / 子卡/接口号
+
+<Huawei>system-view             //进入系统视图
+[Huawei]interface GigabitEthernet0/0/1    //进入接口视图
+[Huawei-GigabitEthernet0/0/1]quit    //返回上一视图
+[Huawei]
+[Huawei]interface GigabitEthernet0/0/1    //再次进入接口视图
+[Huawei-GigabitEthernet0/0/1]return     //返回用户视图
+<Huawei>
+
+修改主机名
+[Huawei]sysname SW1    //在系统视图下将名字修改为SW1
+[Huawei]display current-configuration  //查看当前配置
+[Huawei]display this   //查看当前视图配置
+[Huawei]display version   //查看系统版本,硬件型号等信息
+
+配置用户名和密码:
+<Huawei>system-view 
+[Huawei]aaa          //进入aaa认证,此视图支持用户的创建
+[Huawei-aaa]local-user admin01 password cipher 123    //创建账户叫admin01,密码123       
+[Huawei-aaa]quit
+[Huawei]user-interface console 0     //进入控制台接口视图   
+[Huawei-ui-console0]authentication-mode aaa    //激活配置
+然后使用快捷键 ctrl + ]   //退出系统,测试账户密码的配置
+
+<Huawei>save    //保存配置,途中按y
+<Huawei>reboot   //重启,途中按y
+
+ip地址,相当于住址
+MAC地址  (硬件地址  物理地址) ,相当于身份证号,全球唯一,不可更改
+
+bit 比特(位) 二进制   0  1
+
+0 1 
+
+1+1     10
+
+0123456789     10 
+0123456789ABCDEF    10
+
+十六进制
+52:54:00:35:6e:56
+5254:0035:6e56
+52-54-00-35-6e-56
+
+1对1       单播通讯
+1对多      组播通讯
+1对所有   广播通讯
+
+MTU  最大传输单元,通常是1500字节
+
+MAC地址长度48位,前24位记录了厂商标识,后24位记录了产品序号
+
+交换机: 组建局域网的基本设备,可以智能的通过数据帧中的MAC地址
+进行数据传递,因此交换机工作在数据链路层.
+
+交换机工作原理
+1,学习,学习源mac地址
+2,广播,对除了数据来源的所有接口发送广播信息
+3,转发,1对1通讯
+4,更新,超过300秒无任何数据通讯,交换机会清除对应的mac地址记录
+	   交换机接口设备关机或更换将会立刻删除对应mac地址记录
+
+[Huawei]display mac-address    //查看mac地址表
+[Huawei]in e0/0/1    //进入e0/0/1接口
+[Huawei-ethernet0/0/1]shutdown   //关闭接口
+[Huawei-ethernet0/0/1]undo shutdown   //打开接口
+
+
+
+
+
+
+
+
+
+
+

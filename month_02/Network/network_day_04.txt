@@ -1,0 +1,197 @@
+交换机工作在数据链路层, 传输数据帧,可以智能的依靠MAC地址查找目的主机
+路由器工作在网络层,传输数据包,依靠路由表完成数据转发
+传输层可以实现端到端的数据传递
+TCP 高可靠,效率低,面向连接
+三次握手,四次断开
+UDP 不可靠,效率高,无连接
+
+ACL 基本 2000~2999 对源ip控制   deny permit
+        高级 3000~3999 对源ip,目的ip,源端口,目的端口,协议
+21 ftp tcp
+22 ssh tcp
+53 dns tcp/udp
+80 http tcp
+443 https tcp
+69  tftp  udp
+110 pop3 tcp
+25  smtp tcp
+
+nat  网络地址转换,可以将内部的私有ip地址与公有ip进行转换
+
+A 1~127
+B 128~191
+C 192~223
+
+私有ip地址范围
+A 10.0.0.0~10.255.255.255
+B 172.16.0.0~172.31.255.255
+C 192.168.0.0~192.168.255.255
+
+ipv4   42亿
+100M  500~800  动态公网ip
+100M  50000 静态公网ip      www.baidu.com  100.0.0.1
+	    2000
+ipv6   海量
+
+配置方式
+1,静态nat,一对一转换,一般用在服务器对外网发布服务时使用
+2,easy ip,一对多转换,通常对只需要访问外网的设备配置
+192.168.0.1 100.0.0.1 >                     < 100.0.0.2 192.168.0.1
+路由器配置
+in g0/0/0
+ip add 192.168.2.254 24
+in g0/0/1
+ip add 100.0.0.1 8
+进入外网接口配置nat:
+nat static global 100.0.0.2 inside 192.168.2.1   //使用静态nat将外部地址100.0.0.2与内部地址192.168.2.1进行一对一绑定
+nat static global 100.0.0.3 inside 192.168.2.2
+
+静态nat使用1对1的方式,可以方便的让内外网互访,但成本较高
+192.168.2.1 = 100.0.0.2  >         < 100.0.0.10
+192.168.2.2 = 100.0.0.3  >         < 100.0.0.10
+easy ip可以让内部多个私有地址通过一个公网ip出门,能最大程度节约公网ip,但如果先在外网向内网发送数据是无法通讯的.
+192.168.2.1:2000= 100.0.0.1:2000  >         < 100.0.0.10         
+192.168.2.2:2001 =100.0.0.1:2001  >         < 100.0.0.10     
+
+使用easy ip让内部主机都通过一个外网的接口ip出门,可以达到节约公网ip的目的
+acl 2000
+rule permit source any     //使用acl定义任何内部地址 
+进入路由器公网接口
+nat outbound 2000    //让内部任何主机都可以利用g0/0/1(外网接口)的ip访问外网
+
+STP 生成树协议,可以避免网络环路产生的广播风暴,达到保护网络的效果,还可以具有备份链路的作用
+
+VRRP 虚拟路由冗余协议 
+用来实现网关备份,通过虚拟路由器自动分配正真转发数据的节点(某台物理网关设备)
+VRRP 成员
+1, 主路由器,正在负责数据转发的设备
+2, 备份路由器,处于监视状态,主路由器出现故障后立刻被其替代
+3, 虚拟路由器,真正充当客户机网关的设备
+
+MS1(左边的S5700)
+in vlan 1  //进vlan1接口
+ip add 192.168.1.252 24  //配ip
+vlan 2   //创建vlan2
+in vlan 2   //进vlan2接口
+ip add 192.168.2.2 24  //配ip
+in g0/0/1   //进接口
+port link-type access
+port default vlan 2  //加入vlan2
+MS2
+in vlan 1  //进vlan1接口
+ip add 192.168.1.253 24  //配ip
+vlan 3   //创建vlan3
+in vlan 3   //进vlan3接口
+ip add 192.168.3.2 24  //配ip
+in g0/0/1   //进接口
+port link-type access
+port default vlan 3  //加入vlan3
+
+dispaly ip interface brief  //查看ip
+
+MS1
+ospf
+area 0
+network 192.168.1.0 0.0.0.255
+network 192.168.2.0 0.0.0.255
+MS2
+ospf
+area 0
+network 192.168.1.0 0.0.0.255
+network 192.168.3.0 0.0.0.255
+R(路由器)
+ospf
+area 0
+network 192.168.2.0 0.0.0.255
+network 192.168.3.0 0.0.0.255
+network 192.168.4.0 0.0.0.255
+
+使用查看路由表命令验证结果
+可以只查看含有/24的行
+display ip routing-table | include /24
+可以临时让1.1使用1.252或者1.253作为网关
+可以ping通4.1即可
+
+在两台s5700配置vrrp功能
+in vlan 1
+vrrp vrid 1 virtual-ip 192.168.1.254   //
+配置vrrp功能,组号1,虚拟路由器ip为192.168.1.254
+
+display vrrp brief   //查看vrrp状态,两台设备
+				应该是一主(master)一备(backup)
+最后将1.1的网关设置为1.254测试全网互通即可
+
+新增加vlan(部门)
+MS1
+vlan 10
+in vlan 10
+ip add 192.168.10.252 24
+MS2
+vlan 10
+in vlan 10
+ip add 192.168.10.253 24
+
+将三层交换机与新部门之间的链路配置为trunk
+MS1与MS2以及新部门交换机(SW2)相连的接口
+in g0/0/3
+port link-type trunk
+port trunk allow-pass vlan all
+
+SW2
+vlan 10    
+in e0/0/3
+port link-type access
+port default vlan 10
+使用10.1去ping192.168.10.252与10.253都可以通
+
+在 MS1与MS2宣告10网段
+ospf
+area 0
+network 192.168.10.0 0.0.0.255
+
+开启vlan10的vrrp功能
+MS1与MS2
+in vlan 10
+vrrp vrid 10 virtual-ip 192.168.10.254
+
+使用vrrp实现负载均衡
+最终需要使MS1成为vlan1的主,MS2成为vlan10的主
+MS1
+in vlan 1   //进入MS1的vlan1接口
+vrrp vrid 1 priority 105   //修改优先级为105,立刻成为vlan1的主
+MS2
+in vlan 10  //进入MS2的vlan10接口
+vrrp vrid 10 priority 105  //修改优先级为105,立刻成为vlan10的主
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

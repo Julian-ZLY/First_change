@@ -1,0 +1,119 @@
+awk  选项             条件                                                  指令
+   -F -v	正则,字符和数字,逻辑符号&& ||,运算	      {print $1 $2}
+变量只可以存储一个值,再次赋值时,上一个值会被覆盖
+a=10
+a=20
+数组可以利用多个下标,仅仅使用一个数组名存储多个值
+数组名[下标]=值
+a[0]=10
+a[1]=20
+awk 'BEGIN{a[0]=10;a[1]=20;print a[1],a[0]}'    //首先定义1个数组,名称a,再定义多个下标对应的值, 然后输出
+awk 'BEGIN{a[0]="a";a[1]="b";print a[1],a[0]}'  //除了数字,还可以使用字符,注意要使用双引号
+awk 'BEGIN{a["abc"]=10;a["xyz"]=20;print a["abc"],a["xyz"]}'
+
+awk 'BEGIN{a[0]++;a[1]++;a[1]++;print a[0],a[1]}'
+
+awk 'BEGIN{a[0]=0;a[1]=11;a[2]=22; for(i in a){print i,a[i]}}'    //使用awk数组+for循环显示数组的所有内容
+
+首先准备素材: 
+abc
+abc
+xyz
+qqq
+xyz
+abc
+
+awk '{cba[$1]++}END{for(i in cba){print cba[i],i}}' abc
+			//使用数组+for循环, 输出该文档中每行的第1列是什么内容,出现了几次. 首先定义数组名为cba,下标是每行的第1列, 然后执行++运算,逐行执行,都执行完后得到结果:
+cba[abc]=3
+cba[xyz]=2
+cba[qqq]=1
+然后这个结果再交给for循环处理,循环显示的变量i是下标.
+
+ip[192.168.0.2]=3
+ip[192.168.0.1]=2
+ip[172.25.0.1]=1
+ip[8.8.8.8]=1
+
+awk '{ip[$1]++}END{for(i in ip){print i,ip[i]}}'  abc  | sort -rk 2     //将最后处理的结果交给sort排序, -k是定义按照哪列排序, -r是降序排列
+
+netstat -ntulp | grep :80
+
+使用awk统计网站访问者的ip与点击量
+1,安装httpd与测试工具
+   yum -y install httpd elinks
+2,开启httpd服务
+3,使用测试工具访问本机网站
+   elinks -dump 127.0.0.1
+4,查看httpd访问量日志
+   vim /var/log/httpd/access_log
+    再使用其他主机访问此http服务(注意关闭防火墙),再次查看日志发现增加了新记录
+5,使用awk查看最终结果
+awk '{ip[$1]++}END{for(i in ip){print ip[i],i}}'  /var/log/httpd/access_log  | sort -r 
+6,可以配合脚本增加访问次数再次检测
+#!/bin/bash
+for i in {1..5000}
+do
+	elinks -dump 172.25.0.10 &> /dev/null
+done
+
+
+
+
+编写监控脚本,可以方便查看主机的若干参数
+
+#!/bin/bash
+while :
+do
+uptime |awk '{print "cpu平均负载:"$10,$11,$12}'
+ifconfig eth0 |awk -F[\(\)] '/RX p/{print "网卡eth0接收的数据量是:"$2}'
+ifconfig eth0 |awk -F[\(\)] '/TX p/{print "网卡eth0发送的数据量是:"$2}'
+free -m | awk '/^Mem:/{print "主机剩余内存容量是:"$4"m"}'
+df -h | awk '/vda1/{print "磁盘剩余空间是:"$4}'
+u=`cat /etc/passwd | wc -l`
+echo "计算机账户数量是:$u"
+user=`who | wc -l`
+echo "当前登录的用户数量是:$user"
+p=`ps -aux | wc -l`
+echo "目前开启的进程数量是:$p"
+r=`rpm -qa | wc -l`
+echo "目前安装的软件包数量是:$r"
+sleep 2
+clear
+done
+
+使用awk找出安全日志中对本机访问失败的ip记录与次数统计
+awk '/Failed/{ip[$11]++}END{for(i in ip){print ip[i],i}}' /var/log/secure
+
+
+#!/bin/bash
+abc=`awk '/Failed/{ip[$11]++}END{for(i in ip){print ip[i]","i}}' /var/log/secure`
+for i in $abc
+do
+	aa=${i%,*}
+	bb=${i#*,}
+	[ $aa -ge 10 ] && echo "$bb猜错10次以上密码了,赶紧收拾他" | mail -s test root
+done
+
+\w   匹配数字字母下划线  a-z  A-Z  0-9
+\W   取反
+grep "\w"  aaaa   //在aaaa文件中找所有的数字字母下划线
+\s   各种空白,如空格,tab制表符等
+\S	 取反
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
